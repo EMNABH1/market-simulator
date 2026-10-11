@@ -76,10 +76,8 @@ Résultat principal : la direction de l'or à 5 jours n'est pas prévisible avec
 
 ## Workflow Git
 
-- `main` : version stable. `develop` : intégration. Une branche par fonctionnalité.
-- Nom de branche et commits avec la clé Jira, par exemple `feature/SCRUM-5-donnees-or`.
-- Intégration par Pull Request vers `develop`, relue par un autre membre.
-- Ne jamais committer de fichier `.env`, de clé API ou de CSV.
+- `main` : version intégrée, protégée. Une branche par fonctionnalité, créée depuis `main`.
+- Intégration par Pull Request vers `main`, relue par un autre membre, après test (données, API, site).
 
 ## Source des données
 
