@@ -10,20 +10,20 @@ const PERIODES = [
   { label: "Max", jours: 4000 },
 ];
 
-export default function GraphiqueOr() {
+export default function GraphiqueOr({ symbole, nom, jusqua, theme }: { symbole: string; nom: string; jusqua: string; theme: "dark" | "light" }) {
   const [jours, setJours] = useState(90);
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4">
+    <section className="chart-panel">
       <div className="flex items-start justify-between">
-        <EnteteActif symbole="GC=F" nom="Or" />
+        <EnteteActif symbole={symbole} nom={nom} jusqua={jusqua} />
         <div className="flex gap-1 text-xs">
           {PERIODES.map((p) => (
             <button
               key={p.label}
+              type="button"
+              aria-pressed={jours === p.jours}
               onClick={() => setJours(p.jours)}
-              className={`rounded-lg border px-3 py-2 ${
-                jours === p.jours ? "bg-[#0f1f3d] text-white" : "border-slate-200"
-              }`}
+              className="period-button"
             >
               {p.label}
             </button>
@@ -31,10 +31,10 @@ export default function GraphiqueOr() {
         </div>
       </div>
       <div className="mt-3">
-        <PriceChart symbole="GC=F" jours={jours} />
+        <PriceChart symbole={symbole} jours={jours} jusqua={jusqua} theme={theme} />
       </div>
-      <p className="mt-2 text-xs text-slate-500">
-        Bougies journalières · Moyenne mobile 20 jours (SMA) · Source : Yahoo Finance (GC=F)
+      <p className="data-caption">
+        Bougies journalières · Moyenne mobile 20 jours (SMA) · Source : Yahoo Finance ({symbole})
       </p>
     </section>
   );
