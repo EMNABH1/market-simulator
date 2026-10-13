@@ -128,8 +128,83 @@ def init_db():
                 token_hash TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id)
             );
+            CREATE TABLE IF NOT EXISTS formation_cours(
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                cours_id TEXT NOT NULL,
+                etudie INTEGER NOT NULL DEFAULT 0,
+                meilleur_score INTEGER,
+                reussi INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(user_id, cours_id)
+            );
+            CREATE TABLE IF NOT EXISTS formation_niveaux(
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                niveau_id TEXT NOT NULL,
+                meilleur_score INTEGER,
+                reussi INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(user_id, niveau_id)
+            );
             """
         )
+
+
+def progression_formation(user_id):
+    with closing(connexion()) as conn:
+        cours = conn.execute(
+            "SELECT cours_id, etudie, meilleur_score, reussi FROM formation_cours WHERE user_id = ?",
+            (user_id,),
+        ).fetchall()
+        niveaux = conn.execute(
+            "SELECT niveau_id, meilleur_score, reussi FROM formation_niveaux WHERE user_id = ?",
+            (user_id,),
+        ).fetchall()
+    return (
+        {row["cours_id"]: dict(row) for row in cours},
+        {row["niveau_id"]: dict(row) for row in niveaux},
+    )
+
+
+def marquer_cours_etudie(user_id, cours_id):
+    with closing(connexion()) as conn, conn:
+        conn.execute(
+            """
+            INSERT INTO formation_cours(user_id, cours_id, etudie)
+            VALUES(?, ?, 1)
+            ON CONFLICT(user_id, cours_id) DO UPDATE SET etudie = 1
+            """,
+            (user_id, cours_id),
+        )
+
+
+def enregistrer_score_cours(user_id, cours_id, score, seuil):
+    reussi = int(score >= seuil)
+    with closing(connexion()) as conn, conn:
+        conn.execute(
+            """
+            INSERT INTO formation_cours(user_id, cours_id, etudie, meilleur_score, reussi)
+            VALUES(?, ?, 1, ?, ?)
+            ON CONFLICT(user_id, cours_id) DO UPDATE SET
+                meilleur_score = MAX(COALESCE(meilleur_score, 0), excluded.meilleur_score),
+                reussi = MAX(reussi, excluded.reussi)
+            """,
+            (user_id, cours_id, score, reussi),
+        )
+    return bool(reussi)
+
+
+def enregistrer_score_niveau(user_id, niveau_id, score, seuil):
+    reussi = int(score >= seuil)
+    with closing(connexion()) as conn, conn:
+        conn.execute(
+            """
+            INSERT INTO formation_niveaux(user_id, niveau_id, meilleur_score, reussi)
+            VALUES(?, ?, ?, ?)
+            ON CONFLICT(user_id, niveau_id) DO UPDATE SET
+                meilleur_score = MAX(meilleur_score, excluded.meilleur_score),
+                reussi = MAX(reussi, excluded.reussi)
+            """,
+            (user_id, niveau_id, score, reussi),
+        )
+    return bool(reussi)
 
 
 # ----------------------------------------------------------------- comptes

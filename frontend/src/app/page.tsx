@@ -5,6 +5,7 @@ import StatsOr from "@/components/Or/StatsOr";
 import Connexion from "@/components/Connexion";
 import CommandPalette, { type NavigationPage, type PageId } from "@/components/CommandPalette";
 import DashboardMetrics from "@/components/DashboardMetrics";
+import Formation from "@/components/Formation";
 import MarketSelector, { type Marche } from "@/components/MarketSelector";
 import MarketTicker, { type CoursActif } from "@/components/MarketTicker";
 import MarketPanel from "@/components/MarketPanel";
@@ -48,7 +49,7 @@ const nav: NavigationPage[] = [
   { id: "analysis", label: "Analyse et backtesting", Icon: ChartNoAxesCombined, available: false, description: "Étudier des stratégies et leurs performances historiques." },
   { id: "ai", label: "IA et prévisions", Icon: BrainCircuit, available: false, description: "Explorer les prévisions et les analyses assistées par IA." },
   { id: "stress", label: "Stress testing", Icon: Activity, available: false, description: "Évaluer le portefeuille dans des scénarios de marché extrêmes." },
-  { id: "training", label: "Formation", Icon: GraduationCap, available: false, description: "Apprendre à utiliser les outils du simulateur." },
+  { id: "training", label: "Formation", Icon: GraduationCap, available: true, description: "Apprendre les marchés et progresser du niveau débutant au niveau expert." },
   { id: "admin", label: "Administration", Icon: Settings, available: false, description: "Gérer les comptes et les paramètres de la plateforme." },
 ];
 
@@ -495,6 +496,7 @@ export default function Dashboard() {
           </section>}
           {vue === "trading" && <Trading key={marche.id} token={token} actifs={actifs} symboleInitial={symbole || actifs[0]?.symbole || "GC=F"} simDate={utilisateur.sim_date} onTrade={actualiserCompte} />}
           {vue === "portefeuille" && <Portefeuille token={token} rafraichissement={rafraichissement} />}
+          {vue === "training" && <Formation key={utilisateur.id} token={token} />}
           {pageActive && !pageActive.available && <section className="empty-page">
             <div aria-hidden="true" className="empty-page-icon"><pageActive.Icon size={25} strokeWidth={1.6} /></div>
             <h1>{pageActive.label}</h1>
