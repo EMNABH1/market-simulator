@@ -5,7 +5,7 @@ Projet Informatique Finance, ESPRIT, année universitaire 2026-2027.
 
 ## État actuel
 
-Seule la matière **or (GC=F)** est branchée sur de vraies données : statistiques, graphique en bougies, moyenne mobile. Les autres modules (trading, portefeuille, IA, stress testing) restent à intégrer.
+Deux marchés sont disponibles avec des données réelles : les matières premières (or, pétrole, argent et cuivre) et les cryptomonnaies (Bitcoin, Ethereum, Solana et Dogecoin). Le site propose la sélection du marché, les cotations, le trading simulé et le portefeuille. Les modules risque, backtesting, IA et stress testing restent à intégrer.
 
 ## Stack
 
@@ -17,54 +17,81 @@ Seule la matière **or (GC=F)** est branchée sur de vraies données : statistiq
 
 ```
 backend/            API FastAPI (app/main.py)
-data/Or/            scripts de collecte, nettoyage, features et modèles pour l'or
-data/processed/     CSV nettoyés (générés par les scripts, absents de GitHub)
+data/MatieresPremieres/Or/       scripts et modèles pour l'or
+data/MatieresPremieres/Petrole/  scripts pétrole
+data/MatieresPremieres/Argent/   scripts argent
+data/MatieresPremieres/Cuivre/   scripts cuivre
+data/Crypto/                     scripts pour quatre cryptomonnaies
+data/**/processed/               CSV nettoyés (générés par les scripts, absents de GitHub)
 frontend/           site Next.js
-  src/components/   EnteteActif, PriceChart (génériques) et Or/ (blocs de l'or)
+  src/components/   tableaux de bord, marchés, trading et portefeuille
 ```
 
-## Lancer le projet (données de l'or)
+## Lancer le projet
 
-Les CSV ne sont pas sur GitHub : il faut d'abord les générer. Prérequis : Python 3.11 ou plus, Node.js LTS.
+Prérequis : Python 3.11 ou plus et Node.js LTS. Les CSV ne sont pas sur GitHub ; téléchargez et nettoyez les données avant de démarrer l'API. Les commandes ci-dessous sont pour PowerShell, depuis la racine du dépôt.
 
-### 1. Données (depuis `data/Or`)
+### 1. Données
 
 ```
-cd data/Or
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+python -m venv data\venv
+.\data\venv\Scripts\Activate.ps1
+python -m pip install -r data\MatieresPremieres\Or\requirements.txt
+
+Push-Location data\MatieresPremieres\Or
 python telecharger_or.py
 python nettoyer_or.py
+Pop-Location
+
+Push-Location data\MatieresPremieres\Petrole
+python telecharger_petrole.py
+python nettoyer_petrole.py
+Pop-Location
+
+Push-Location data\MatieresPremieres\Argent
+python telecharger_argent.py
+python nettoyer_argent.py
+Pop-Location
+
+Push-Location data\MatieresPremieres\Cuivre
+python telecharger_cuivre.py
+python nettoyer_cuivre.py
+Pop-Location
+
+Push-Location data\Crypto
+python telecharger_crypto.py
+python nettoyer_crypto.py
+Pop-Location
 ```
 
-`telecharger_or.py` crée `or_brut.csv`, puis `nettoyer_or.py` crée `data/processed/or_propre.csv`, que l'API lit.
+Les scripts crypto récupèrent Bitcoin, Ethereum, Solana et Dogecoin. Les CSV nettoyés sont écrits sous `data\MatieresPremieres` et `data\Crypto` ; l'API les lit directement.
 
-### 2. API (depuis `backend`, dans un second terminal)
+### 2. API (dans un second terminal)
 
 ```
-cd backend
+Set-Location backend
 python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+.\venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload
 ```
 
-Test : http://127.0.0.1:8000/api/resume/GC=F doit afficher le dernier prix de l'or.
+L'API est disponible sur http://127.0.0.1:8000. Par exemple, http://127.0.0.1:8000/api/resume/GC=F affiche le dernier cours de l'or.
 
-### 3. Site (depuis `frontend`, dans un troisième terminal)
+### 3. Site (dans un troisième terminal)
 
 ```
-cd frontend
+Set-Location frontend
 npm install
 npm run dev
 ```
 
-Ouvrir http://localhost:3000.
+Ouvrir http://localhost:3000, puis créer un compte ou se connecter pour accéder au tableau de bord.
 
-## Modèles de l'or (optionnel, depuis `data/Or`)
+## Modèles de l'or (optionnel)
 
 ```
+Set-Location data\MatieresPremieres\Or
 python features_or.py
 python entrainer_or.py
 python volatilite_or.py
@@ -81,4 +108,4 @@ Résultat principal : la direction de l'or à 5 jours n'est pas prévisible avec
 
 ## Source des données
 
-Prix de l'or : Yahoo Finance, contrat à terme COMEX (GC=F), journalier depuis 2012. C'est un future, pas le prix spot : de petits sauts sont possibles au changement de contrat. Le volume n'est comparable qu'à partir de 2020.
+Prix de l'or : Yahoo Finance, contrat à terme COMEX (GC=F), journalier depuis 2012. C'est un future, pas le prix spot : de petits sauts sont possibles au changement de contrat. Le volume n'est comparable qu'à partir de 2020. Les matières premières et cryptomonnaies sont également téléchargées depuis Yahoo Finance ; les scripts conservent l'historique disponible pour chaque symbole.

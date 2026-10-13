@@ -19,10 +19,28 @@ DATA_DIR = ROOT_DIR / "data"
 DB_PATH = ROOT_DIR / "backend" / "simulateur.db"
 CAPITAL_INITIAL = 100_000.0
 FICHIERS = {
-    "GC=F": "processed/or_propre.csv",
-    "CL=F": "processed/petrole_propre.csv",
-    "SI=F": "processed/argent_propre.csv",
-    "HG=F": "processed/cuivre_propre.csv",
+    "GC=F": "MatieresPremieres/Or/processed/or_propre.csv",
+    "CL=F": "MatieresPremieres/processed/petrole_propre.csv",
+    "SI=F": "MatieresPremieres/processed/argent_propre.csv",
+    "HG=F": "MatieresPremieres/Cuivre/processed/cuivre_propre.csv",
+    "BTC-USD": "Crypto/processed/bitcoin_propre.csv",
+    "ETH-USD": "Crypto/processed/ethereum_propre.csv",
+    "SOL-USD": "Crypto/processed/solana_propre.csv",
+    "DOGE-USD": "Crypto/processed/dogecoin_propre.csv",
+}
+
+# Un marche = un groupe d'actifs. Le cash reste unique par utilisateur.
+MARCHES = {
+    "matieres": {
+        "nom": "Matières premières",
+        "description": "Or, pétrole, argent, cuivre. Séances en semaine.",
+        "actifs": ["GC=F", "CL=F", "SI=F", "HG=F"],
+    },
+    "crypto": {
+        "nom": "Cryptomonnaies",
+        "description": "Bitcoin, Ethereum, Solana, Dogecoin. Marché ouvert 7j/7.",
+        "actifs": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
+    },
 }
 
 
@@ -40,11 +58,12 @@ def chemin_actif(symbole, dossier=None):
     return correspondances[0] if correspondances else chemin
 
 
-def charger_actifs(dossier=None):
-    """Lit les clôtures des actifs configurés depuis leurs CSV nettoyés."""
+def charger_actifs(dossier=None, marche=None):
+    """Lit les clôtures des actifs configurés (ou d'un seul marché) depuis leurs CSV nettoyés."""
     dossier = Path(dossier) if dossier else DATA_DIR
+    symboles = MARCHES[marche]["actifs"] if marche else FICHIERS
     actifs = {}
-    for symbole in FICHIERS:
+    for symbole in symboles:
         f = chemin_actif(symbole, dossier)
         try:
             if f is None or not f.is_file():
@@ -101,7 +120,7 @@ def init_db():
                 user_id INTEGER NOT NULL REFERENCES users(id),
                 asset TEXT NOT NULL,
                 side TEXT NOT NULL CHECK(side IN ('ACHAT','VENTE')),
-                quantity INTEGER NOT NULL CHECK(quantity > 0),
+                quantity REAL NOT NULL CHECK(quantity > 0),
                 price REAL NOT NULL,
                 sim_date TEXT NOT NULL
             );
@@ -201,7 +220,7 @@ def positions(ordres):
         else:
             q -= o.quantity
         pos[o.asset] = (q, moyen)
-    return {a: v for a, v in pos.items() if v[0] > 0}
+    return {a: v for a, v in pos.items() if v[0] > 1e-9}
 
 
 def passer_ordre(user_id, actif, sens, quantite, prix, date_sim):
@@ -210,9 +229,9 @@ def passer_ordre(user_id, actif, sens, quantite, prix, date_sim):
         return False, "Prix non valide à cette date (nul ou négatif) : ordre refusé."
     if sens not in ("ACHAT", "VENTE"):
         return False, "Sens de l'ordre inconnu."
-    if quantite <= 0 or int(quantite) != quantite:
-        return False, "La quantité doit être un nombre entier positif."
-    quantite = int(quantite)
+    quantite = round(float(quantite), 8)
+    if quantite <= 0:
+        return False, "La quantité doit être un nombre positif."
     montant = quantite * prix
 
     with closing(connexion()) as conn, conn:
@@ -231,8 +250,8 @@ def passer_ordre(user_id, actif, sens, quantite, prix, date_sim):
                 params=(user_id,),
             )
             detenu = positions(ordres).get(actif, (0, 0.0))[0]
-            if quantite > detenu:
-                return False, f"Vous ne détenez que {detenu} unité(s) de {actif}."
+            if quantite > detenu + 1e-9:
+                return False, f"Vous ne détenez que {detenu:g} unité(s) de {actif}."
             nouveau_cash = cash + montant
         conn.execute("UPDATE users SET cash = ? WHERE id = ?", (nouveau_cash, user_id))
         conn.execute(
@@ -240,7 +259,7 @@ def passer_ordre(user_id, actif, sens, quantite, prix, date_sim):
             (user_id, actif, sens, quantite, prix, str(date_sim)[:10]),
         )
     verbe = "Achat exécuté" if sens == "ACHAT" else "Vente exécutée"
-    return True, f"{verbe} : {quantite} × {actif} à {prix:,.2f} $ (total {montant:,.2f} $)."
+    return True, f"{verbe} : {quantite:g} × {actif} à {prix:,.2f} $ (total {montant:,.2f} $)."
 
 
 # --------------------------------------------------------------- portefeuille

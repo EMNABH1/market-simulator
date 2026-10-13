@@ -5,7 +5,8 @@ import StatsOr from "@/components/Or/StatsOr";
 import Connexion from "@/components/Connexion";
 import CommandPalette, { type NavigationPage, type PageId } from "@/components/CommandPalette";
 import DashboardMetrics from "@/components/DashboardMetrics";
-import MarketTicker, { type Actif, type CoursActif } from "@/components/MarketTicker";
+import MarketSelector, { type Marche } from "@/components/MarketSelector";
+import MarketTicker, { type CoursActif } from "@/components/MarketTicker";
 import MarketPanel from "@/components/MarketPanel";
 import Portefeuille from "@/components/Portefeuille";
 import SimulationBar, { type VitesseSimulation } from "@/components/SimulationBar";
@@ -23,6 +24,7 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Repeat,
   Search,
   Settings,
   Shield,
@@ -30,10 +32,12 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 type Utilisateur = { id: number; username: string; role: string; cash: number; sim_date: string };
 type Theme = "dark" | "light";
+
+const CLE_MARCHE = "market-simulator-marche";
 
 const nav: NavigationPage[] = [
   { id: "dashboard", label: "Tableau de bord", Icon: LayoutDashboard, available: true },
@@ -62,7 +66,10 @@ function formaterNombre(value: number): string {
 }
 
 export default function Dashboard() {
-  const [actifs, setActifs] = useState<Actif[]>([]);
+  // Le marché choisi détermine la liste des actifs affichés partout dans l'application.
+  const [marche, setMarche] = useState<Marche | null>(null);
+  const [marchePrete, setMarchePrete] = useState(false);
+  const actifs = useMemo(() => marche?.actifs ?? [], [marche]);
   const [symbole, setSymbole] = useState("");
   // Les résultats asynchrones sont rangés avec la date simulée qui les a produits : un résultat d'une autre date n'est jamais affiché.
   const [coursCharges, setCoursCharges] = useState<{ date: string; cours: Record<string, CoursActif | null> } | null>(null);
@@ -83,23 +90,43 @@ export default function Dashboard() {
   const [messageTemps, setMessageTemps] = useState("");
   const dateSimulation = utilisateur?.sim_date;
 
+  // Restaure le marché choisi lors d'une précédente visite (et recale la date simulée si besoin).
   useEffect(() => {
+    if (!token) return;
     const controller = new AbortController();
-
-    apiJson<Actif[]>("/api/actifs", { signal: controller.signal })
-      .then((data) => {
-        if (!Array.isArray(data) || data.length === 0) throw new Error("Aucun actif disponible");
-        setActifs(data);
-        setSymbole((current) =>
-          data.some((actif) => actif.symbole === current) ? current : data[0].symbole
+    const idEnregistre = localStorage.getItem(CLE_MARCHE);
+    if (!idEnregistre) {
+      setMarchePrete(true);
+      return;
+    }
+    apiJson<Marche[]>("/api/marches", { signal: controller.signal }, token)
+      .then(async (liste) => {
+        const trouve = liste.find((item) => item.id === idEnregistre && item.disponible);
+        if (!trouve) {
+          localStorage.removeItem(CLE_MARCHE);
+          return;
+        }
+        const reponse = await apiJson<{ sim_date: string }>(
+          `/api/marches/${encodeURIComponent(trouve.id)}/choisir`,
+          { method: "POST", signal: controller.signal },
+          token,
         );
+        if (controller.signal.aborted) return;
+        setMarche(trouve);
+        setSymbole(trouve.actifs[0].symbole);
+        setUtilisateur((courant) => (courant ? { ...courant, sim_date: reponse.sim_date } : courant));
       })
       .catch(() => {
-        if (!controller.signal.aborted) setErreurActifs(true);
+        if (!controller.signal.aborted) {
+          localStorage.removeItem(CLE_MARCHE);
+          setErreurActifs(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setMarchePrete(true);
       });
-
     return () => controller.abort();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -175,10 +202,35 @@ export default function Dashboard() {
 
   function deconnecter() {
     localStorage.removeItem("market-simulator-token");
+    localStorage.removeItem(CLE_MARCHE);
     setToken("");
     setUtilisateur(null);
+    setMarche(null);
+    setMarchePrete(false);
+    setSymbole("");
+    setCoursCharges(null);
     setVue("dashboard");
     setLecture(false);
+  }
+
+  function choisirMarche(nouveau: Marche, simDate: string) {
+    localStorage.setItem(CLE_MARCHE, nouveau.id);
+    setMarche(nouveau);
+    setSymbole(nouveau.actifs[0].symbole);
+    setCoursCharges(null);
+    setUtilisateur((courant) => (courant ? { ...courant, sim_date: simDate } : courant));
+    setVue("dashboard");
+    setErreurActifs(false);
+  }
+
+  function changerMarche() {
+    localStorage.removeItem(CLE_MARCHE);
+    setMarche(null);
+    setSymbole("");
+    setCoursCharges(null);
+    setLecture(false);
+    setVue("dashboard");
+    setMenuMobileOuvert(false);
   }
 
   async function actualiserCompte() {
@@ -343,6 +395,23 @@ export default function Dashboard() {
     return <Connexion onConnected={connecter} theme={theme} onToggleTheme={basculerTheme} />;
   }
 
+  if (!marchePrete) {
+    return <main className="auth-page"><p className="loading-state">Chargement de votre marché…</p></main>;
+  }
+
+  if (!marche) {
+    return (
+      <main className="auth-page">
+        <div>
+          <MarketSelector token={token} onChoose={choisirMarche} />
+          <div className="mt-4 text-center">
+            <button className="text-button logout-button" onClick={deconnecter} type="button">Déconnexion</button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <div className="app-shell" data-active-asset={symbole} data-rail-collapsed={railReplie}>
       {menuMobileOuvert && <button aria-label="Fermer le menu" className="mobile-menu-backdrop" onClick={() => setMenuMobileOuvert(false)} type="button" />}
@@ -362,8 +431,12 @@ export default function Dashboard() {
               <span className="rail-nav-label">{label}</span>
             </button>
           ))}
+          <button className="rail-nav-item" onClick={changerMarche} title={railReplie ? "Changer de marché" : undefined} type="button">
+            <Repeat aria-hidden="true" size={19} strokeWidth={1.8} />
+            <span className="rail-nav-label">Changer de marché</span>
+          </button>
         </nav>
-        <div className="rail-bottom"><span className="rail-bottom-dot" />Simulation active</div>
+        <div className="rail-bottom"><span className="rail-bottom-dot" />{marche.nom}</div>
       </aside>
 
       <div className="app-main">
@@ -392,7 +465,7 @@ export default function Dashboard() {
 
         <main aria-busy={avancementEnCours} className="app-content">
           {vue === "dashboard" && <>
-            <div className="page-heading"><h1>Tableau de bord</h1><p>{actif ? `Marché : ${actif.nom}` : "Marché des matières premières"}</p></div>
+            <div className="page-heading"><h1>Tableau de bord</h1><p>{actif ? `Marché : ${actif.nom}` : marche.nom}</p></div>
             {actif ? <>
               <DashboardMetrics token={token} symbole={actif.symbole} quote={cours[actif.symbole] ?? null} simDate={utilisateur.sim_date} rafraichissement={rafraichissement} />
               {prixNonPositif && <p className="market-warning" role="alert">Prix négatif : trading suspendu pour le WTI à cette date.</p>}
@@ -406,7 +479,7 @@ export default function Dashboard() {
             </> : <p className="loading-state" role="status">Chargement des actifs…</p>}
           </>}
           {vue === "markets" && <section className="page-section">
-            <div className="page-heading"><h1>Marchés</h1><p>Cotations disponibles au {utilisateur.sim_date}.</p></div>
+            <div className="page-heading"><h1>Marchés</h1><p>{marche.nom} · cotations disponibles au {utilisateur.sim_date}.</p></div>
             <div className="market-list">
               {actifs.map((item) => {
                 const quote = cours[item.symbole];
@@ -420,7 +493,7 @@ export default function Dashboard() {
               })}
             </div>
           </section>}
-          {vue === "trading" && <Trading token={token} actifs={actifs} symboleInitial={symbole || actifs[0]?.symbole || "GC=F"} simDate={utilisateur.sim_date} onTrade={actualiserCompte} />}
+          {vue === "trading" && <Trading key={marche.id} token={token} actifs={actifs} symboleInitial={symbole || actifs[0]?.symbole || "GC=F"} simDate={utilisateur.sim_date} onTrade={actualiserCompte} />}
           {vue === "portefeuille" && <Portefeuille token={token} rafraichissement={rafraichissement} />}
           {pageActive && !pageActive.available && <section className="empty-page">
             <div aria-hidden="true" className="empty-page-icon"><pageActive.Icon size={25} strokeWidth={1.6} /></div>

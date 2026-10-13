@@ -33,6 +33,10 @@ NOMS = {
     "CL=F": "Pétrole WTI",
     "SI=F": "Argent",
     "HG=F": "Cuivre (HG=F) · USD/lb",
+    "BTC-USD": "Bitcoin",
+    "ETH-USD": "Ethereum",
+    "SOL-USD": "Solana",
+    "DOGE-USD": "Dogecoin",
 }
 bearer = HTTPBearer(auto_error=False)
 
@@ -49,7 +53,7 @@ class DemandeAvancement(BaseModel):
 class DemandeOrdre(BaseModel):
     symbole: str
     sens: Literal["ACHAT", "VENTE"]
-    quantite: int = Field(gt=0)
+    quantite: float = Field(gt=0)
 
 
 def utilisateur_connecte(
@@ -76,6 +80,37 @@ def charger(symbole: str) -> pd.DataFrame:
 @app.get("/api/actifs")
 def actifs():
     return [{"symbole": symbole, "nom": NOMS[symbole]} for symbole in FICHIERS]
+
+
+@app.get("/api/marches")
+def marches(_utilisateur: dict = Depends(utilisateur_connecte)):
+    disponibles = moteur.charger_actifs()
+    return [
+        {
+            "id": id_marche,
+            "nom": m["nom"],
+            "description": m["description"],
+            "disponible": any(s in disponibles for s in m["actifs"]),
+            "actifs": [{"symbole": s, "nom": NOMS[s]} for s in m["actifs"]],
+        }
+        for id_marche, m in moteur.MARCHES.items()
+    ]
+
+
+@app.post("/api/marches/{id_marche}/choisir")
+def choisir_marche(id_marche: str, utilisateur: dict = Depends(utilisateur_connecte)):
+    """Si la date simulée précède le début des données du marché, on l'avance (jamais en arrière)."""
+    if id_marche not in moteur.MARCHES:
+        raise HTTPException(status_code=404, detail="Marché inconnu")
+    actifs_marche = moteur.charger_actifs(marche=id_marche)
+    if not actifs_marche:
+        raise HTTPException(status_code=503, detail="Aucune donnée disponible pour ce marché")
+    depart = pd.Timestamp(moteur.date_debut(actifs_marche))
+    date_actuelle = pd.Timestamp(utilisateur["sim_date"])
+    if date_actuelle < depart:
+        moteur.definir_date(utilisateur["id"], depart.date())
+        date_actuelle = depart
+    return {"marche": id_marche, "sim_date": date_actuelle.strftime("%Y-%m-%d")}
 
 
 @app.get("/api/prix/{symbole}")
@@ -209,8 +244,14 @@ def creer_ordre(
     )
     if not ok:
         raise HTTPException(status_code=400, detail=message)
-    return {"message": message, "symbole": demande.symbole, "sens": demande.sens,
-            "quantite": demande.quantite, "prix": prix, "sim_date": date_sim.strftime("%Y-%m-%d")}
+    return {
+        "message": message,
+        "symbole": demande.symbole,
+        "sens": demande.sens,
+        "quantite": demande.quantite,
+        "prix": prix,
+        "sim_date": date_sim.strftime("%Y-%m-%d"),
+    }
 
 
 @app.get("/api/ordres")
