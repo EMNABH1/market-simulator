@@ -8,6 +8,7 @@ type Bougie = { time: string; close: number };
 type Ordre = { id: number; asset: string; side: "ACHAT" | "VENTE"; quantity: number; price: number; sim_date: string };
 
 const nombre = (value: number) => value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const quantiteTexte = (value: number) => value.toLocaleString("fr-FR", { maximumFractionDigits: 8 });
 
 export default function Trading({
   token,
@@ -98,7 +99,7 @@ export default function Trading({
           </fieldset>
           <label className="block text-sm font-medium">
             Quantité
-            <input type="number" min="1" step="1" required value={quantite} onChange={(event) => setQuantite(Math.max(1, Number(event.target.value)))} />
+            <input type="number" min="0" step="any" required value={quantite} onChange={(event) => setQuantite(Math.max(0, Number(event.target.value)))} />
           </label>
           <div className="estimate-row">
             <span className="text-secondary">Cours connu · Montant estimé</span>
@@ -109,7 +110,7 @@ export default function Trading({
           {prix !== null && prix <= 0 && <p className="inline-warning">Cours nul ou négatif à cette date : l’ordre sera refusé.</p>}
           {erreur && <p role="alert" className="inline-error">{erreur}</p>}
           {resultat && <p role="status" className="inline-success">{resultat}</p>}
-          <button type="submit" disabled={envoi || prix === null} className="primary-button">
+          <button type="submit" disabled={envoi || prix === null || quantite <= 0} className="primary-button">
             {envoi ? "Exécution…" : sens === "ACHAT" ? "Confirmer l’achat" : "Confirmer la vente"}
           </button>
         </form>
@@ -121,7 +122,7 @@ export default function Trading({
           <div className="table-wrap">
             <table className="data-table">
               <thead><tr><th>Date simulée</th><th>Actif</th><th>Sens</th><th className="numeric">Quantité</th><th className="numeric">Cours</th></tr></thead>
-              <tbody>{ordres.map((ordre) => <tr key={ordre.id}><td>{ordre.sim_date}</td><td>{ordre.asset}</td><td className={ordre.side === "ACHAT" ? "trade-direction-positive" : "trade-direction-negative"}>{ordre.side}</td><td className="numeric">{ordre.quantity}</td><td className="numeric">{nombre(ordre.price)} USD</td></tr>)}</tbody>
+              <tbody>{ordres.map((ordre) => <tr key={ordre.id}><td>{ordre.sim_date}</td><td>{ordre.asset}</td><td className={ordre.side === "ACHAT" ? "trade-direction-positive" : "trade-direction-negative"}>{ordre.side}</td><td className="numeric">{quantiteTexte(ordre.quantity)}</td><td className="numeric">{nombre(ordre.price)} USD</td></tr>)}</tbody>
             </table>
           </div>
         )}
