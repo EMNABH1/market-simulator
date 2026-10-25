@@ -96,10 +96,7 @@ export default function Dashboard() {
     if (!token) return;
     const controller = new AbortController();
     const idEnregistre = localStorage.getItem(CLE_MARCHE);
-    if (!idEnregistre) {
-      setMarchePrete(true);
-      return;
-    }
+    if (!idEnregistre) return;
     apiJson<Marche[]>("/api/marches", { signal: controller.signal }, token)
       .then(async (liste) => {
         const trouve = liste.find((item) => item.id === idEnregistre && item.disponible);
@@ -188,7 +185,10 @@ export default function Dashboard() {
 
     verification
       .finally(() => {
-        if (!controller.signal.aborted) setSessionPrete(true);
+        if (!controller.signal.aborted) {
+          setMarchePrete(!localStorage.getItem(CLE_MARCHE));
+          setSessionPrete(true);
+        }
       });
     return () => controller.abort();
   }, []);
@@ -196,6 +196,7 @@ export default function Dashboard() {
   async function connecter(newToken: string) {
     const currentUser = await apiJson<Utilisateur>("/api/moi", {}, newToken);
     localStorage.setItem("market-simulator-token", newToken);
+    setMarchePrete(!localStorage.getItem(CLE_MARCHE));
     setToken(newToken);
     setUtilisateur(currentUser);
     setSessionPrete(true);
