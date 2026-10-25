@@ -5,7 +5,11 @@ Projet Informatique Finance, ESPRIT, année universitaire 2026-2027.
 
 ## État actuel
 
-Deux marchés sont disponibles avec des données réelles : les matières premières (or, pétrole, argent et cuivre) et les cryptomonnaies (Bitcoin, Ethereum, Solana et Dogecoin). Le site propose la sélection du marché, les cotations, le trading simulé et le portefeuille. Les modules risque, backtesting, IA et stress testing restent à intégrer.
+Deux marchés sont disponibles avec des données réelles : les matières premières (or, pétrole, argent et cuivre) et les cryptomonnaies (Bitcoin, Ethereum, Solana et Dogecoin). Le site propose la sélection du marché, les cotations, le trading simulé, le portefeuille et un parcours de formation progressif. Les modules risque, backtesting, IA et stress testing restent à intégrer.
+
+## Parcours de formation
+
+La rubrique **Formation** comprend quatre niveaux (débutant, intermédiaire, avancé et expert), avec trois cours détaillés par niveau, des objectifs, des exemples guidés et des mises en pratique. Les leçons mettent l'accent sur les habitudes d'un trader discipliné : planifier ses entrées et sorties, limiter le risque, tenir un journal, contrôler ses émotions et réviser ses décisions sans supposer qu'un gain passé garantit un gain futur. Chaque quiz contient dix questions navigables individuellement, affiche la note et les corrections après soumission, et exige au moins 5/10 pour valider. Les cours se débloquent dans l'ordre : il faut marquer une leçon comme étudiée, puis réussir son quiz. Après les trois cours d'un niveau, un quiz de niveau réussi débloque le suivant. Les résultats et l'avancement sont enregistrés séparément pour chaque compte.
 
 ## Stack
 
